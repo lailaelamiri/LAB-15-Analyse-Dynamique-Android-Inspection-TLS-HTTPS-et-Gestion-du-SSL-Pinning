@@ -41,6 +41,7 @@ frida --version
 adb devices
 frida-ps -Uai
 ```
+<img width="1118" height="623" alt="Screenshot 2026-05-17 100542" src="https://github.com/user-attachments/assets/62c246d9-a59b-4e35-a854-9535fee90958" />
 
 ---
 
@@ -54,7 +55,9 @@ In Burp: **Proxy → Proxy settings → Edit → Bind to address → All interfa
 
 The listener entry updates from `127.0.0.1:8080` to `*:8080`, confirming it now accepts emulator connections.
 
+
 **Screenshot — Burp listener configured on all interfaces**
+<img width="1082" height="665" alt="Screenshot 2026-05-17 112753" src="https://github.com/user-attachments/assets/b8f55107-8ad6-4d22-9165-2e2b7cd5e528" />
 
 ### 1.2 Export the CA Certificate
 
@@ -63,6 +66,8 @@ Burp Suite generates its own certificate authority to sign certificates for inte
 In Burp: **Proxy → Proxy settings → Import / export CA certificate → Export → Certificate in DER format**
 
 Save the file locally. The exported file is 986 bytes — a standard DER-encoded X.509 certificate.
+<img width="619" height="584" alt="Screenshot 2026-05-17 110949" src="https://github.com/user-attachments/assets/30740d1d-dd1c-4014-8a9b-e9539b975fcd" />
+
 
 ### 1.3 Push the Certificate to the Emulator
 
@@ -82,6 +87,8 @@ On the emulator:
 Confirmation: `CA certificate installed`
 
 **Screenshot — CA certificate installed confirmation**
+<img width="198" height="137" alt="Screenshot 2026-05-17 112037" src="https://github.com/user-attachments/assets/0dac5baa-53f0-444d-9201-4a98ad4f8fc8" />
+
 
 ### 1.5 Configure the Emulator Proxy
 
@@ -95,6 +102,7 @@ adb shell settings get global http_proxy
 Expected output: `10.0.2.2:8080`
 
 ---
+<img width="1091" height="142" alt="image" src="https://github.com/user-attachments/assets/e2379f97-862e-4190-916f-d7091cffcc9f" />
 
 ## Part 2 — Validating Proxy Traffic Capture
 
@@ -108,6 +116,8 @@ https://testphp.vulnweb.com
 Burp Suite → **Proxy → HTTP history** shows all requests passing through the proxy, including HTTPS requests marked with a TLS checkmark. Both HTTP and HTTPS traffic from the emulator is now fully readable in Burp.
 
 **Screenshot — Burp HTTP history showing intercepted HTTP and HTTPS traffic**
+<img width="1909" height="465" alt="Screenshot 2026-05-17 112839" src="https://github.com/user-attachments/assets/e1410ffb-692f-4e70-8061-828a130a5d3f" />
+
 
 ### What the CA Certificate Enables
 
@@ -122,9 +132,7 @@ Emulator → Burp (presents certificate signed by its CA) → target server
                  → TLS handshake accepted, traffic readable
 ```
 
-**Screenshot — Certificate error before CA installation**
 
-**Screenshot — HTTPS traffic visible in Burp after CA installation**
 
 ---
 
@@ -271,6 +279,7 @@ When the app makes an HTTPS connection, additional lines fire for each hook that
 ```
 
 **Screenshot — Frida console output with all hooks confirmed**
+<img width="1641" height="614" alt="Screenshot 2026-05-17 114134" src="https://github.com/user-attachments/assets/7ada1a3d-7ac8-444c-99ed-4a91a237ffab" />
 
 ---
 
@@ -285,6 +294,8 @@ Frida attached successfully to the DIVA process. All three hook layers confirmed
 Frida attached to the Chrome process. All hooks confirmed active. On navigation to `https://testphp.vulnweb.com`, the `X509TrustManagerExtensions.checkServerTrusted` hook fired, confirming the bypass intercepted a live TLS validation call. Chrome's hardened native TLS stack on x86 triggered a SIGTRAP after the hook returned — this is a known limitation of hooking Chrome's renderer process on x86 emulators and does not affect the validity of the hook demonstration.
 
 **Screenshot — Frida hook firing on Chrome HTTPS connection**
+<img width="1599" height="525" alt="Screenshot 2026-05-17 114348" src="https://github.com/user-attachments/assets/09297665-fd94-43c9-a3f2-89b2856f7db6" />
+
 
 ---
 
@@ -314,18 +325,7 @@ Target server (testphp.vulnweb.com)
 
 ---
 
-## Part 6 — Troubleshooting
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| `ERR_PROXY_CONNECTION_FAILED` | Burp listener on loopback only | Change listener to All interfaces |
-| `NET::ERR_CERT_AUTHORITY_INVALID` | Burp CA not installed | Install `.crt` via Security settings |
-| File picker shows `.der` as greyed out | Wrong extension | Rename to `.crt` via `adb shell mv` |
-| `Failed to spawn: need Gadget` | System app, spawn not permitted | Use `-p <PID>` attach mode |
-| `unable to locate setArgV0()` | Frida 17.x bug on x86 | Use attach mode instead of spawn |
-| Chrome crashes after hook fires | Native TLS stack SIGTRAP on x86 | Expected on x86 emulator; hook fired before crash |
-
----
 
 ## Part 7 — Cleanup
 
